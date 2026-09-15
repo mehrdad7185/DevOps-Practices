@@ -1,0 +1,122 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# ============================================================
+#  mehops-v2  |  DevOps Lab
+#  Phase 1: controller + app + monitoring + ci
+# ============================================================
+
+IMAGE_UBUNTU = "bento/ubuntu-22.04"
+
+Vagrant.configure("2") do |config|
+
+  # ----------------------------------------------------------
+  # Global settings
+  # ----------------------------------------------------------
+  config.vm.box_check_update = false
+
+  # ----------------------------------------------------------
+  # controller  |  192.168.56.10
+  # Ansible target / administration server
+  # later: reverse proxy
+  # ----------------------------------------------------------
+  config.vm.define "controller" do |vm|
+    vm.vm.box      = IMAGE_UBUNTU
+    vm.vm.hostname = "controller"
+
+    vm.vm.network "private_network", ip: "192.168.56.10"
+
+    # Web admin / future reverse proxy
+    vm.vm.network "forwarded_port", guest: 80,  host: 8080
+    vm.vm.network "forwarded_port", guest: 443, host: 8443
+
+    vm.vm.provider "virtualbox" do |v|
+      v.name   = "mehops-controller"
+      v.memory = 2048
+      v.cpus   = 2
+    end
+  end
+
+  # ----------------------------------------------------------
+  # app  |  192.168.56.11
+  # Docker, Docker Compose, app + DB
+  # later: Nginx / Traefik
+  # ----------------------------------------------------------
+  config.vm.define "app" do |vm|
+    vm.vm.box      = IMAGE_UBUNTU
+    vm.vm.hostname = "app"
+
+    vm.vm.network "private_network", ip: "192.168.56.11"
+
+    # Application HTTP
+    vm.vm.network "forwarded_port", guest: 80,   host: 8081
+    vm.vm.network "forwarded_port", guest: 443,  host: 8444
+
+    # Direct application port for testing
+    vm.vm.network "forwarded_port", guest: 8000, host: 8000
+
+    vm.vm.provider "virtualbox" do |v|
+      v.name   = "mehops-app"
+      v.memory = 3072
+      v.cpus   = 2
+    end
+  end
+
+  # ----------------------------------------------------------
+  # monitoring  |  192.168.56.12
+  # Prometheus, Grafana, Alertmanager, Loki, Node Exporter
+  # ----------------------------------------------------------
+  config.vm.define "monitoring" do |vm|
+    vm.vm.box      = IMAGE_UBUNTU
+    vm.vm.hostname = "monitoring"
+
+    vm.vm.network "private_network", ip: "192.168.56.12"
+
+    # Grafana
+    vm.vm.network "forwarded_port", guest: 3000, host: 3000
+
+    # Prometheus
+    vm.vm.network "forwarded_port", guest: 9090, host: 9090
+
+    # Alertmanager
+    vm.vm.network "forwarded_port", guest: 9093, host: 9093
+
+    # Loki
+    vm.vm.network "forwarded_port", guest: 3100, host: 3100
+
+    vm.vm.provider "virtualbox" do |v|
+      v.name   = "mehops-monitoring"
+      v.memory = 4096
+      v.cpus   = 2
+    end
+  end
+
+  # ----------------------------------------------------------
+  # ci  |  192.168.56.13
+  # GitLab, GitLab Runner, pipelines, Trivy, backup/restore
+  # ----------------------------------------------------------
+  config.vm.define "ci" do |vm|
+    vm.vm.box      = IMAGE_UBUNTU
+    vm.vm.hostname = "ci"
+
+    vm.vm.network "private_network", ip: "192.168.56.13"
+
+    # GitLab HTTP / HTTPS
+    vm.vm.network "forwarded_port", guest: 80,  host: 8082
+    vm.vm.network "forwarded_port", guest: 443, host: 8445
+
+    # GitLab SSH
+    vm.vm.network "forwarded_port",
+                  guest: 22,
+                  host: 2222,
+                  id: "ssh",
+                  auto_correct: true
+
+    vm.vm.provider "virtualbox" do |v|
+      v.name   = "mehops-ci"
+      v.memory = 6144
+      v.cpus   = 2
+    end
+  end
+
+end
